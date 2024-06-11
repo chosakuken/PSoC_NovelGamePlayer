@@ -24,7 +24,7 @@ wav_array = np.arange(0,0)
 wav_dac = np.arange(0,0)
 wav_python = np.arange(0,0)
 freq = 0
-divider = 32 * 32 * 32
+divider = 16
 #半角カタカナ→ASCIIの変換用辞書
 hanASCii_data = {
     '｡':161,
