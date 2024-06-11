@@ -8,7 +8,6 @@ import serial.tools.list_ports
 from pykakasi import kakasi
 import jaconv
 #wavファイル解析
-import numpy as np
 import csv
 
 #wavの配列
