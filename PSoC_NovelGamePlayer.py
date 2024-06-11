@@ -4,13 +4,13 @@ import PySimpleGUI as sg
 import serial
 import serial.tools
 import serial.tools.list_ports
-#ファイル名→半角カタカナ変換
+#日本語文字列→半角カタカナ変換
 from pykakasi import kakasi
 import jaconv
 #wavファイル解析
 import csv
 
-#wavの配列
+#ストーリー格納用
 story = [['',''],['','']]
 current = 0
 #半角カタカナ→ASCIIの変換用辞書
@@ -105,15 +105,18 @@ def writeSerial(command = ''):
 
 #ひらがな→カタカナ変換
 def nameConv(name = ''):
+    #Pykakasiのインスタンス作成
     kks = kakasi()
+    #漢字→ひらがな変換の表を作成
     done_conv = kks.convert(name)
+    #結果に表からひらがなのみを取り出し、半角カタカナに変換して格納
     result = ''
     for word in done_conv:
         result += f"{word['hira']}"
     result = jaconv.hira2hkata(result)
     return result
 
-#16進数変換
+#16進数→文字列変換
 def conv16(num = 0):
     if num == 0:
         return '0'
@@ -151,9 +154,13 @@ def conv16(num = 0):
     return 'N'
 #タイトルをシリアル通信で送り込む
 def submit(text = '',column = 0):
+    #内容を半角カタカナ変換
     text = nameConv(text)
+    #$Wコマンドと、書き込む行数をコマンドにする。
     result = '$W' + str(column)
+    #文字列が溢れないように
     index = 0
+    #文字列を実際に送る16進数に変換する
     for s in text:
         num = ord(s)
         if index >= 16:
@@ -166,7 +173,9 @@ def submit(text = '',column = 0):
         result += conv16(int((num % 256) / 16))
         result += conv16(int(num % 16))
         index += 1
+    #終了記号追加
     result += '$'
+    #シリアルに書き込む
     writeSerial(result)
 #ポートリストを取得,反映
 def UpdateSerial():
@@ -178,10 +187,12 @@ def UpdateSerial():
 #ストーリー読み込み
 def ReadStory(path=''):
     l = [['',''],['','']]
+    #ストーリー読み込み
     if path != '':
         with open(path,encoding='utf-8') as f:
             reader = csv.reader(f)
             l = [row for row in reader]
+    #シリアルポート設定を反映
     if values['Serial_name'] == '':
         window['Serial_display'].update('シリアルポートが選択されていません')
     else :
@@ -191,22 +202,29 @@ def ReadStory(path=''):
 def next_story(index=0):
     #Storyが正常に読み込めていないとき
     if story[0][0] in 'human':
-        print('Error!')
+        ERROR()
         return 0
+    #現在位置がコマンドであるかどうか
     if story[index][0][0] != '$':
+        #コマンドでなければ次に進む
         index += 1
         submit(story[index][0],0)
         submit(story[index][1],1)
     else:
+        #コマンドであれば、次に進まない
         return index
     if story[index][0][0] != '$':
+        #次に進んだ場合,そのまま今の位置を返す
         return index
     elif story[index][0] in '$select':
+        #$selectコマンド用の書き込み
         WriteSelect(story[index][1],story[index][2],story[index][4])
         return index
     elif story[index][0] in '$end':
+        #終了用の書き込み
         WriteEnd(story[index][1])
         return index
+    #どれにも当てはまらない場合⇔エラー処理
     ERROR()
     return -1
 #$selectコマンド書き込み
@@ -224,19 +242,25 @@ def ERROR():
     submit('!ERROR!',1)
 #select
 def Select(index = 0, selection_num = 0):
+    #selectコマンドでなければ、操作不能
     if not (story[index][0] in '$select'):
         return index
     jump = 0
+    #Selection1の場合
     if selection_num == 1:
         jump = int(story[index][3]) - 1
+    #Selection2の場合
     elif selection_num == 2:
         jump = int(story[index][5]) - 1
+    #jump先に想定外の値がきた場合⇔エラー処理
     if jump > len(story) or jump == 0:
         ERROR()
         return -1
+    #jump先がコマンドであった場合⇔エラー処理
     if story[jump][0] in '$':
         ERROR()
         return -1
+    #jump先に飛ぶ
     submit(story[jump][1],1)
     submit(story[jump][0],0)
     return jump 
@@ -246,15 +270,20 @@ while True:
     # window close
     if event == sg.WIN_CLOSED:
         break
+    #ストーリー、シリアルポート読み込み
     if event == 'Submit':
         story = ReadStory(values['src'])
         current = next_story(0)
+    #現在のシリアルポート一覧をアップデートする
     if event == 'Update_Serial':
         UpdateSerial()
+    #Selection1ボタンが押された
     if event == 'sele_1':
         current = Select(current,1)
+    #Selection2ボタンが押された
     if event == 'sele_2':
         current = Select(current,2)
+    #次へボタンが押された
     if event == 'next':
         current = next_story(current)
 #ウィンドウを閉じる
